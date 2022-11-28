@@ -1,14 +1,26 @@
 pipeline {
     agent any
+    
+    tools {
+        maven "maven3"
+    }
 
     environment {
-        registry = "992122884453.dkr.ecr.us-east-1.amazonaws.com/validator-frontend"
+        registry = "992122884453.dkr.ecr.us-east-1.amazonaws.com/validator-front"
     }
 
     stages {
         stage ('Checkout') {
             steps {
-                checkout ()
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/evangtim2/jum-tech-test/tree/main/jumia-tech-assign/jumia_phone_validator/validator-frontend']]])
+            }
+        }
+        
+        stage ("Build jar") {
+            steps {
+                script {
+                    sh "mvn clean install"
+                }
             }
         }
 
@@ -23,7 +35,7 @@ pipeline {
         stage ("docker push") {
             steps {
                 script {
-                    sh ""
+                    sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 992122884453.dkr.ecr.us-east-1.amazonaws.com"
                     sh "docker push 992122884453.dkr.ecr.us-east-1.amazonaws.com/validator-frontend"
                 }
             }
@@ -31,8 +43,9 @@ pipeline {
 
         stage ("kube Deploy") {
             steps {
-                
-                sh "kubectl apply -f deploy-frontend.yaml"
+                withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', serverUrl: '') {
+                    sh "kubectl apply -f deploy-frontend.yaml"
+                }
             }
         }
     }
